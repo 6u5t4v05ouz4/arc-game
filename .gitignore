@@ -5,25 +5,50 @@ package-lock.json
 # Environment variables
 .env
 .env.local
+.env.*.local
 
-# IDE
+# IDE and Editor
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
+.project
+.classpath
+.settings/
+*.plan.md
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
 # Build outputs
 dist/
 build/
+out/
+*.tsbuildinfo
+
+# Cache
+.cache/
+.parcel-cache/
+.npm/
+.eslintcache
+.stylelintcache
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
 
 # Local storage (opcional - se não quiser commitar dados locais)
 # localStorage/
