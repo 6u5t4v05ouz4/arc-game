@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mira nas Transações - Arc Testnet</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="hud-info">
+        <div class="hud-card">
+            <div id="wallet-info">Wallet: Not Connected</div>
+        </div>
+        <div class="hud-card">
+        <div id="score">Score: 0</div>
+            <div id="pending-kills">Pending Kills: 0</div>
+        </div>
+        <div class="hud-card" id="claim-button-container" style="display: none;">
+            <button id="claim-kills-btn" class="claim-button">Claim Kills</button>
+        </div>
+        <div class="hud-card controls-card">
+            <button id="connect-wallet">Connect Wallet</button>
+            <button id="create-wallet">Create Local Wallet</button>
+            <button id="disconnect-wallet" style="display: none;">Disconnect</button>
+        <button id="reset-session">Reset Session</button>
+        </div>
+    </div>
+    
+    <div id="game"></div>
+    
+    <script type="module">
+        import { RPC_URL } from './js/config.js';
+        import { 
+            loadEthers, 
+            loadWallet, 
+            createWallet, 
+            saveWallet,
+            connectExternalWallet,
+            hasExternalWallet,
+            saveWalletPreference,
+            getWalletPreference
+        } from './js/wallet.js';
+        import { initGame, setWallet, setProvider, resetScore, setNotificationCallback, resetGameAfterClaim, setPendingKillsUpdateCallback } from './js/game.js';
+        import { initUI, updateScore, updateWalletInfo, createNotification, showClaimButton, hideClaimButton } from './js/ui.js';
+        import { claimKills } from './js/blockchain.js';
+        import { getPendingKills, clearKills, canClaim } from './js/killQueue.js';
+        import { MIN_KILLS_FOR_CLAIM } from './js/config.js';
+
+        let wallet = null;
+        let provider = null;
+        let game = null;
+        let isExternalWallet = false;
+        let totalPoints = 0;  // Acumula por kill
+
+        // Inicializa UI
+        initUI();
+        setNotificationCallback(createNotification);
+        
+        // Callback para atualizar botão de claim quando kills mudarem
+        setPendingKillsUpdateCallback((pendingKills) => {
+            if (canClaim()) {
+                // Obtém scene do Phaser para passar para showClaimButton
+                const scene = game && game.scene && game.scene.scenes && game.scene.scenes[0] ? game.scene.scenes[0] : null;
+                showClaimButton(scene, pendingKills, async () => {
+                    await handleClaimKills();
+                });
+            } else {
+                hideClaimButton();
+            }
+        });
+        
+        // Conecta botão HTML do HUD ao handler de claim (será configurado no showClaimButton)
+        
+        // Função para atualizar UI do botão de claim (não mais necessária, botão é atualizado via showClaimButton)
+        function updateClaimUI() {
+            // Botão de claim agora é gerenciado via showClaimButton/hideClaimButton
+            // Não precisa mais atualizar manualmente
+        }
+        
+        // Função para fazer claim de tokens
+        async function claimTokens(scene) {
+            if (!wallet || totalPoints <= 0) {
+                createNotification(scene, 'No points to claim!', 'error');
+                return;
+            }
+            
+            try {
+                const Ethers = await loadEthers();
+                const { CONTRACT_ADDRESS, CONTRACT_ABI } = await import('./js/config.js');
+                const contract = new Ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, wallet);
+                
+                // Verifica se há pontos suficientes antes de enviar
+                console.log('Tentando fazer claim de', totalPoints, 'pontos...');
+                console.log('Endereço da wallet:', wallet.address);
+                
+                // Checa estado on-chain (view)
+                const pending = await contract.getPlayerKills(wallet.address);
+                console.log('Kills já reivindicados on-chain:', pending.toString());
+                
+                // Tenta estimar gas primeiro - isso vai detectar se há algum problema
+                try {
+                    const estimatedGas = await contract.claimKills.estimateGas(totalPoints);
+                    console.log('Gas estimado:', estimatedGas.toString());
+                } catch (estimateErr) {
+                    console.error('Erro ao estimar gas:', estimateErr);
+                    
+                    // Verifica se é erro de cap diário
+                    if (estimateErr.reason && estimateErr.reason.includes('Daily cap')) {
+                        createNotification(scene, 'Cap diário já foi reivindicado! Tente novamente amanhã.', 'error');
+                        return;
+                    }
+                    
+                    // Outros erros
+                    const errorMsg = estimateErr.reason || estimateErr.message || 'Erro desconhecido';
+                    createNotification(scene, `Erro: ${errorMsg}`, 'error');
+                    return;
+                }
+                
+                const tx = await contract.claimKills(totalPoints, { gasLimit: 150000 });
+                console.log('Claim TX:', tx.hash);
+                
+                const receipt = await tx.wait();
+                
+                // Verifica se a transação foi bem-sucedida
+                if (receipt.status === 0) {
+                    console.error('Transação revertida! Receipt:', receipt);
+                    createNotification(scene, 'Transação revertida. Verifique o contrato.', 'error');
+                    return;
+                }
+                
+                console.log('Claim Confirmada! Tokens minted: ~' + totalPoints);
+                
+                const txUrl = `https://testnet.arcscan.app/tx/${tx.hash}`;
+                createNotification(scene, `Claimed ${totalPoints} pts → ${totalPoints} tokens! TX: ${tx.hash.substring(0,10)}...`, 'success', {
+                    hash: tx.hash,
+                    url: txUrl
+                });
+                
+                // Reset local
+                totalPoints = 0;
+                window.totalPoints = 0;
+                updateClaimUI();
+                
+                // Limpa kills pendentes também
+                clearKills();
+                resetGameAfterClaim();
+                
+                // Atualiza saldo
+                if (provider) {
+                    try {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        const balance = await provider.getBalance(wallet.address);
+                        const balanceEth = await Ethers.formatEther(balance);
+                        const isLowBalance = parseFloat(balanceEth) < 0.001;
+                        updateWalletInfo(wallet.address, balanceEth, isLowBalance, isExternalWallet, isExternalWallet ? 'correct' : null);
+                    } catch (balanceErr) {
+                        console.error('Erro ao atualizar saldo:', balanceErr);
+                    }
+                }
+                
+            } catch (err) {
+                console.error('Claim Error completo:', err);
+                console.error('Claim Error message:', err.message);
+                console.error('Claim Error reason:', err.reason);
+                console.error('Claim Error data:', err.data);
+                
+                // Tenta extrair mensagem de erro mais específica
+                let errorMessage = err.message || 'Erro desconhecido';
+                if (err.reason) {
+                    errorMessage = err.reason;
+                } else if (err.data && err.data.message) {
+                    errorMessage = err.data.message;
+                }
+                
+                createNotification(scene, `Claim falhou: ${errorMessage.substring(0,50)}...`, 'error');
+            }
+        }
+        
+        // Expõe funções globalmente para acesso do Phaser
+        window.totalPoints = totalPoints;
+        window.updateClaimUI = updateClaimUI;
+        window.claimTokens = claimTokens;
+        
+        // Função para processar claim de kills (mantida para compatibilidade)
+        async function handleClaimKills() {
+            if (!wallet || !provider) {
+                alert('Conecte uma wallet para fazer claim!');
+                return;
+            }
+            
+            const pendingKills = getPendingKills();
+            if (pendingKills < MIN_KILLS_FOR_CLAIM) {
+                alert(`Você precisa de pelo menos ${MIN_KILLS_FOR_CLAIM} kills para fazer claim!`);
+                return;
+            }
+            
+            try {
+                // Obtém a scene do Phaser
+                const scene = game.scene.scenes[0];
+                
+                // Chama função de claim
+                await claimKills(
+                    scene,
+                    wallet,
+                    provider,
+                    pendingKills,
+                    (txData) => {
+                        // Sucesso
+                        createNotification(scene, `Claimed ${pendingKills} kills!`, 'success', txData);
+                        // Limpa kills pendentes e reseta score
+                        clearKills();
+                        resetGameAfterClaim();
+                        hideClaimButton();
+                        
+                        // Atualiza totalPoints
+                        totalPoints = 0;
+                        window.totalPoints = 0;
+                        updateClaimUI();
+                    },
+                    (error) => {
+                        // Erro
+                        createNotification(scene, `Claim falhou: ${error.substring(0, 50)}...`, 'error');
+                    },
+                    (address, newBalance) => {
+                        // Atualiza saldo
+                        const isLowBalance = parseFloat(newBalance) < 0.001;
+                        updateWalletInfo(address, newBalance, isLowBalance, isExternalWallet, isExternalWallet ? 'correct' : null);
+                    }
+                );
+            } catch (err) {
+                console.error('Erro ao fazer claim:', err);
+                alert('Erro ao fazer claim: ' + err.message);
+            }
+        }
+
+        // Função para atualizar UI após conectar wallet
+        async function updateWalletUI(walletInstance, providerInstance, isExternal = false) {
+            try {
+                const balance = await providerInstance.getBalance(walletInstance.address);
+                const balanceEth = await loadEthers().then(Ethers => Ethers.formatEther(balance));
+                const isLowBalance = parseFloat(balanceEth) < 0.001;
+                
+                // Verifica status da rede se for wallet externa
+                let networkStatus = null;
+                if (isExternal) {
+                    const { isArcTestnet } = await import('./js/wallet.js');
+                    const isCorrect = await isArcTestnet();
+                    networkStatus = isCorrect ? 'correct' : 'incorrect';
+                }
+                
+                updateWalletInfo(walletInstance.address, balanceEth, isLowBalance, isExternal, networkStatus);
+                
+                // Atualiza botões
+                document.getElementById('connect-wallet').style.display = isExternal ? 'none' : 'block';
+                document.getElementById('create-wallet').style.display = isExternal ? 'none' : 'block';
+                document.getElementById('disconnect-wallet').style.display = isExternal ? 'block' : 'none';
+                
+                console.log('Wallet conectada:', walletInstance.address, 'Balance:', balanceEth, 'External:', isExternal, 'Network:', networkStatus);
+                
+                if (isLowBalance) {
+                    alert('Fund with USDC testnet on faucet to play!');
+                }
+                
+                if (isExternal && networkStatus === 'incorrect') {
+                    alert('Você está conectado a uma rede diferente. Por favor, mude para Arc Testnet no MetaMask.');
+                }
+            } catch (err) {
+                console.error('Erro ao atualizar UI:', err);
+            }
+        }
+
+        // Connect Wallet Button (Wallet Externa)
+        document.getElementById('connect-wallet').addEventListener('click', async () => {
+            try {
+                if (!hasExternalWallet()) {
+                    alert('Nenhuma wallet externa detectada. Instale MetaMask ou outra wallet compatível.');
+                    return;
+                }
+                
+                const result = await connectExternalWallet();
+                wallet = result.wallet;
+                provider = result.provider;
+                isExternalWallet = true;
+                
+                setWallet(wallet);
+                setProvider(provider);
+                saveWalletPreference(true);
+                
+                await updateWalletUI(wallet, provider, true);
+            } catch (err) {
+                console.error('Erro ao conectar wallet:', err);
+                alert('Erro ao conectar wallet: ' + err.message);
+            }
+        });
+
+        // Create Local Wallet Button
+        document.getElementById('create-wallet').addEventListener('click', async () => {
+            try {
+                const Ethers = await loadEthers();
+                provider = new Ethers.JsonRpcProvider(RPC_URL);
+                setProvider(provider);
+                
+                let loadedWallet = await loadWallet();
+                if (!loadedWallet) {
+                    loadedWallet = await createWallet();
+                    saveWallet(loadedWallet);
+                }
+                
+                wallet = loadedWallet.connect(provider);
+                isExternalWallet = false;
+                
+                setWallet(wallet);
+                saveWalletPreference(false);
+                
+                await updateWalletUI(wallet, provider, false);
+            } catch (err) {
+                console.error('Erro ao criar wallet:', err);
+                alert('Erro na wallet: ' + err.message);
+            }
+        });
+
+        // Disconnect Wallet Button
+        document.getElementById('disconnect-wallet').addEventListener('click', () => {
+            wallet = null;
+            provider = null;
+            isExternalWallet = false;
+            setWallet(null);
+            setProvider(null);
+            saveWalletPreference(false);
+            
+            document.getElementById('wallet-info').innerHTML = 'Wallet: Not Connected';
+            document.getElementById('connect-wallet').style.display = 'block';
+            document.getElementById('create-wallet').style.display = 'block';
+            document.getElementById('disconnect-wallet').style.display = 'none';
+        });
+
+        // Reset Session
+        document.getElementById('reset-session').addEventListener('click', () => {
+            resetScore();
+        });
+
+        // Monitora mudanças de rede (apenas para wallet externa)
+        if (hasExternalWallet()) {
+            window.ethereum.on('chainChanged', async (chainId) => {
+                console.log('Rede mudou para:', chainId);
+                if (isExternalWallet && wallet) {
+                    // Verifica se ainda está na rede correta
+                    const { isArcTestnet } = await import('./js/wallet.js');
+                    const isCorrect = await isArcTestnet();
+                    
+                    if (!isCorrect) {
+                        alert('Você mudou para uma rede diferente. Por favor, volte para Arc Testnet para continuar jogando.');
+                        // Desconecta wallet se rede estiver incorreta
+                        document.getElementById('disconnect-wallet').click();
+                    } else {
+                        // Reconecta se necessário
+                        try {
+                            const result = await connectExternalWallet();
+                            wallet = result.wallet;
+                            provider = result.provider;
+                            setWallet(wallet);
+                            setProvider(provider);
+                            await updateWalletUI(wallet, provider, true);
+                        } catch (err) {
+                            console.error('Erro ao reconectar após mudança de rede:', err);
+                        }
+                    }
+                }
+            });
+
+            window.ethereum.on('accountsChanged', async (accounts) => {
+                console.log('Contas mudaram:', accounts);
+                if (isExternalWallet && accounts.length === 0) {
+                    // Usuário desconectou no MetaMask
+                    document.getElementById('disconnect-wallet').click();
+                } else if (isExternalWallet && accounts.length > 0) {
+                    // Reconecta com nova conta
+                    try {
+                        const result = await connectExternalWallet();
+                        wallet = result.wallet;
+                        provider = result.provider;
+                        setWallet(wallet);
+                        setProvider(provider);
+                        await updateWalletUI(wallet, provider, true);
+                    } catch (err) {
+                        console.error('Erro ao reconectar após mudança de conta:', err);
+                    }
+                }
+            });
+        }
+
+        // Start Game
+        window.addEventListener('load', async () => {
+            try {
+                await loadEthers();
+                game = initGame();
+                
+                // Sincroniza totalPoints com kills pendentes ao iniciar
+                totalPoints = getPendingKills();
+                window.totalPoints = totalPoints;
+                
+                // Configura callback do botão de claim após game iniciar
+                setTimeout(() => {
+                    if (game && game.scene && game.scene.scenes && game.scene.scenes[0]) {
+                        const scene = game.scene.scenes[0];
+                        updateClaimUI();
+                    }
+                }, 1500);
+                
+                // Não cria wallet automaticamente - usuário deve escolher
+                // Apenas tenta reconectar wallet externa se foi a última preferência
+                const preference = getWalletPreference();
+                if (preference === 'external' && hasExternalWallet()) {
+                    try {
+                        const result = await connectExternalWallet();
+                        wallet = result.wallet;
+                        provider = result.provider;
+                        isExternalWallet = true;
+                        setWallet(wallet);
+                        setProvider(provider);
+                        await updateWalletUI(wallet, provider, true);
+                    } catch (err) {
+                        console.log('Não foi possível reconectar wallet externa. Usuário deve conectar manualmente.');
+                        // Não faz nada - deixa usuário escolher
+                    }
+                }
+                // Se preferência for 'local' ou não houver preferência, não cria automaticamente
+            } catch (err) {
+                console.error('Load Error:', err);
+            }
+        });
+    </script>
+</body>
+</html>

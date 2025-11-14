@@ -1,0 +1,467 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+
+/* Reset e Base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+    color: #00ff00;
+    font-family: 'Orbitron', monospace;
+    position: relative;
+}
+
+/* Background grid pattern */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* HUD - Painel de Informações - fixo no topo */
+#hud-info {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 15px;
+    padding: 20px;
+    font-family: 'Orbitron', monospace;
+    pointer-events: none; /* Permite cliques passarem através do HUD */
+    background: rgba(0, 0, 0, 0.9);
+    border-bottom: 2px solid rgba(0, 255, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+/* Container do jogo - abaixo do HUD */
+#game {
+    display: block;
+    position: fixed;
+    top: 180px; /* Começa abaixo do HUD */
+    left: 0;
+    width: 100%;
+    height: calc(100% - 180px); /* Altura total menos altura do HUD */
+    z-index: 1;
+    box-sizing: border-box;
+}
+
+/* Canvas do Phaser dentro do #game - ocupa todo o espaço disponível */
+#game canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Cards do HUD */
+.hud-card {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #00ff00;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 
+        0 0 15px rgba(0, 255, 0, 0.6),
+        inset 0 0 10px rgba(0, 255, 0, 0.1);
+    backdrop-filter: blur(10px);
+    width: 100%;
+    transition: all 0.3s ease;
+    pointer-events: auto; /* Permite interação com os cards */
+}
+
+.hud-card:hover {
+    box-shadow: 
+        0 0 20px rgba(0, 255, 0, 0.8),
+        inset 0 0 15px rgba(0, 255, 0, 0.2);
+    transform: translateX(5px);
+}
+
+/* Card de botões dentro do HUD */
+.hud-card.controls-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Wallet Info */
+#wallet-info {
+    margin: 0;
+}
+
+.wallet-address,
+.wallet-balance {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.wallet-address .icon,
+.wallet-balance .icon {
+    font-size: 16px;
+    filter: drop-shadow(0 0 5px #00ffff);
+}
+
+.wallet-address .label,
+.wallet-balance .label {
+    color: #00ffff;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+
+.wallet-address .value,
+.wallet-balance .value {
+    color: #00ff00;
+    font-weight: 700;
+    font-family: 'Rajdhani', monospace;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+    flex: 1;
+}
+
+/* Botão de copiar wallet */
+.copy-wallet-btn {
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid rgba(0, 255, 0, 0.5);
+    color: #00ff00;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 24px;
+}
+
+.copy-wallet-btn:hover {
+    background: rgba(0, 255, 0, 0.2);
+    border-color: #00ff00;
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+    transform: scale(1.1);
+}
+
+.copy-wallet-btn:active {
+    transform: scale(0.95);
+}
+
+.copy-wallet-btn.copied {
+    background: rgba(0, 255, 0, 0.3);
+    border-color: #00ff00;
+    color: #00ff00;
+}
+
+.copy-wallet-btn .copy-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.wallet-address.low-balance .value,
+.wallet-balance.low-balance .value {
+    color: #ff6600;
+    text-shadow: 0 0 10px rgba(255, 102, 0, 0.8);
+    animation: pulse-warning 2s infinite;
+}
+
+/* Indicador de rede */
+.network-status {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.network-status.correct {
+    background: rgba(0, 255, 0, 0.2);
+    color: #00ff00;
+    border: 1px solid rgba(0, 255, 0, 0.5);
+}
+
+.network-status.incorrect {
+    background: rgba(255, 102, 0, 0.2);
+    color: #ff6600;
+    border: 1px solid rgba(255, 102, 0, 0.5);
+    animation: pulse-warning 2s infinite;
+}
+
+.network-status:not(.correct):not(.incorrect) {
+    background: rgba(0, 255, 255, 0.2);
+    color: #00ffff;
+    border: 1px solid rgba(0, 255, 255, 0.5);
+}
+
+.wallet-link {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.faucet-link {
+    color: #00ffff;
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.faucet-link:hover {
+    color: #00ff00;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+    transform: scale(1.05);
+}
+
+.warning {
+    color: #ff6600;
+    font-size: 11px;
+    margin-top: 8px;
+    padding: 5px;
+    background: rgba(255, 102, 0, 0.1);
+    border-left: 3px solid #ff6600;
+    border-radius: 3px;
+    animation: pulse-warning 2s infinite;
+}
+
+/* Score */
+#score {
+    font-size: 24px;
+    font-weight: 900;
+    color: #00ff00;
+    text-shadow: 
+        0 0 10px rgba(0, 255, 0, 0.8),
+        0 0 20px rgba(0, 255, 0, 0.5);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    margin-bottom: 10px;
+}
+
+#score.pulse {
+    animation: pulse-score 0.3s ease;
+    transform: scale(1.2);
+}
+
+/* Pending Kills */
+#pending-kills {
+    font-size: 16px;
+    font-weight: 600;
+    color: #00ffff;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+}
+
+#pending-kills.ready-to-claim {
+    color: #00ff00;
+    text-shadow: 
+        0 0 10px rgba(0, 255, 0, 0.8),
+        0 0 20px rgba(0, 255, 0, 0.5);
+    animation: pulse-claim 2s infinite;
+}
+
+@keyframes pulse-claim {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+}
+
+/* Botões */
+button {
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.1) 0%, rgba(0, 255, 255, 0.1) 100%);
+    color: #00ff00;
+    border: 2px solid #00ff00;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        0 0 10px rgba(0, 255, 0, 0.3),
+        inset 0 0 10px rgba(0, 255, 0, 0.1);
+}
+
+/* Botão de Claim especial */
+.claim-button {
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.2) 0%, rgba(0, 255, 255, 0.2) 100%);
+    color: #00ff00;
+    border: 2px solid #00ff00;
+    padding: 15px 25px;
+    font-size: 16px;
+    font-weight: 900;
+    box-shadow: 
+        0 0 15px rgba(0, 255, 0, 0.5),
+        inset 0 0 15px rgba(0, 255, 0, 0.2);
+    animation: pulse-claim-button 2s infinite;
+}
+
+.claim-button:hover {
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.3) 0%, rgba(0, 255, 255, 0.3) 100%);
+    border-color: #00ffff;
+    color: #00ffff;
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.7),
+        inset 0 0 20px rgba(0, 255, 255, 0.3);
+    transform: translateY(-2px) scale(1.05);
+}
+
+@keyframes pulse-claim-button {
+    0%, 100% {
+        box-shadow: 
+            0 0 15px rgba(0, 255, 0, 0.5),
+            inset 0 0 15px rgba(0, 255, 0, 0.2);
+    }
+    50% {
+        box-shadow: 
+            0 0 25px rgba(0, 255, 0, 0.8),
+            inset 0 0 20px rgba(0, 255, 0, 0.3);
+    }
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(0, 255, 0, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+button:hover {
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.2) 0%, rgba(0, 255, 255, 0.2) 100%);
+    border-color: #00ffff;
+    color: #00ffff;
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.6),
+        inset 0 0 15px rgba(0, 255, 255, 0.2);
+    transform: translateY(-2px) scale(1.05);
+}
+
+button:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+button:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 
+        0 0 10px rgba(0, 255, 0, 0.4),
+        inset 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #666;
+    color: #666;
+}
+
+button:disabled:hover {
+    transform: none;
+    box-shadow: 
+        0 0 10px rgba(0, 255, 0, 0.3),
+        inset 0 0 10px rgba(0, 255, 0, 0.1);
+}
+
+/* Animações */
+@keyframes pulse-score {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+@keyframes pulse-warning {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+    }
+}
+
+/* Responsividade básica */
+@media (max-width: 900px) {
+    #hud-info {
+        flex-direction: column;
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    /* HUD pode ter altura diferente em mobile, mas mantém separação */
+    #game {
+        top: 180px; /* Mantém separação do HUD */
+    }
+    
+    .hud-card {
+        padding: 12px;
+        width: 100%;
+    }
+    
+    #score {
+        font-size: 20px;
+    }
+    
+    button {
+        padding: 10px 16px;
+        font-size: 12px;
+    }
+}
+
