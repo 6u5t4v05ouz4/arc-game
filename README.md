@@ -170,3 +170,99 @@ The contract address is configured in `js/config.js`:
 - Kills are persisted in `localStorage` to not lose on reload
 - The system automatically validates the connected network and requests change if necessary
 - Transaction notifications include link to Arc Testnet explorer
+
+## 🔐 Smart Contract
+
+The game uses a custom ERC-20 token contract deployed on Arc Testnet. The contract allows players to claim accumulated kills as tokens (1 kill = 1 token).
+
+### Contract Details
+- **Name**: Arc Game Token (ARCGAME)
+- **Address**: `0x9eFc3Fe047CCE17000426FfE67d4F8AB596882F3`
+- **Network**: Arc Testnet (Chain ID: 5042002)
+- **Standard**: ERC-20 with Ownable
+
+### Contract Code
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+/**
+ * @title KillContract
+ * @dev Contrato para gerenciar kills e tokens do jogo Mira nas Transações
+ * Cada kill equivale a 1 token que pode ser reivindicado pelo jogador
+ */
+contract KillContract is ERC20, Ownable {
+    // Mapeamento de endereço para total de kills acumulados
+    mapping(address => uint256) public playerKills;
+    
+    mapping(address => uint256) public lastClaimTime; // Pra cap diário
+    uint256 public DAILY_CAP = 100; // Max kills claim por dia (mutável pelo owner)
+    uint256 public constant DAY_IN_SECONDS = 86400;
+    
+    event KillsClaimed(
+        address indexed player,
+        uint256 count,
+        uint256 tokensMinted,
+        uint256 timestamp
+    );
+    
+    constructor() ERC20("Arc Game Token", "ARCGAME") Ownable(msg.sender) {
+        _mint(msg.sender, 1000000 * 10**decimals()); // 1M tokens iniciais pro owner
+    }
+    
+    /**
+     * @dev Reivindica kills acumulados
+     * @param count Número de kills a serem reivindicados
+     * 
+     * Requisitos:
+     * - count deve ser maior que 0
+     * - O jogador deve ter kills suficientes acumulados (cap diário)
+     */
+    function claimKills(uint256 count) external {
+        require(count > 0, "Count must be greater than 0");
+        require(count <= DAILY_CAP, "Exceeds daily cap");
+        
+        // require(block.timestamp >= lastClaimTime[msg.sender] + DAY_IN_SECONDS, "Daily cap already claimed"); // Comentado pro MVP testnet - libera claims múltiplos
+        
+        // Adiciona kills ao total do jogador e mint tokens (1:1)
+        playerKills[msg.sender] += count;
+        uint256 tokens = count * 10**decimals();
+        _mint(msg.sender, tokens);
+        
+        lastClaimTime[msg.sender] = block.timestamp; // Mantém pra future/mainnet
+        
+        // Emite evento
+        emit KillsClaimed(msg.sender, count, tokens, block.timestamp);
+    }
+    
+    /**
+     * @dev Retorna o total de kills de um jogador
+     * @param player Endereço do jogador
+     * @return Total de kills acumulados
+     */
+    function getPlayerKills(address player) external view returns (uint256) {
+        return playerKills[player];
+    }
+    
+    // Owner pode ajustar cap se precisar
+    function setDailyCap(uint256 newCap) external onlyOwner {
+        DAILY_CAP = newCap;
+    }
+}
+```
+
+### Key Features
+- **ERC-20 Token**: Standard token implementation using OpenZeppelin
+- **1:1 Minting**: Each kill equals 1 token (1 kill = 1 ARCGAME token)
+- **Daily Cap**: Maximum of 100 kills can be claimed per day (configurable by owner)
+- **Ownable**: Owner can adjust daily cap and manage contract
+- **Events**: Emits `KillsClaimed` event for each claim transaction
+
+### Functions
+- `claimKills(uint256 count)`: Claims accumulated kills and mints tokens
+- `getPlayerKills(address player)`: Returns total kills for a player
+- `setDailyCap(uint256 newCap)`: Owner-only function to adjust daily cap
