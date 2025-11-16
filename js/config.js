@@ -33,14 +33,14 @@ export const ARC_TESTNET = {
     blockExplorerUrls: ['https://testnet.arcscan.app']
 };
 
-// Altura do HUD (reservada no topo)
-export const HUD_HEIGHT = 180;
+// Largura da Sidebar
+export const SIDEBAR_WIDTH = 280;
 
-// Configurações do Phaser - ocupa espaço abaixo do HUD
+// Configurações do Phaser - ocupa espaço ao lado da sidebar
 export const GAME_CONFIG = {
     type: Phaser.AUTO,
-    width: window.innerWidth,
-    height: window.innerHeight - HUD_HEIGHT,
+    width: window.innerWidth - SIDEBAR_WIDTH,
+    height: window.innerHeight,
     backgroundColor: '#000000',
     parent: 'game',
     physics: { 

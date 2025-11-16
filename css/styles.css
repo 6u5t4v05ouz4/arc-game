@@ -64,14 +64,14 @@ body {
     overflow: hidden;
 }
 
-/* Container do jogo - abaixo do HUD */
+/* Container do jogo - ao lado da sidebar */
 #game {
     display: block;
     position: fixed;
-    top: 180px;
-    left: 0;
-    width: 100%;
-    height: calc(100% - 180px);
+    top: 0;
+    left: 280px;
+    width: calc(100% - 280px);
+    height: 100%;
     z-index: var(--z-game);
     box-sizing: border-box;
 }
@@ -83,40 +83,61 @@ body {
 }
 
 /* ============================================
-   HUD PRINCIPAL - MINIMALISTA
+   SIDEBAR LATERAL - MINIMALISTA
    ============================================ */
-#hud-info {
+#sidebar {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
+    width: 280px;
+    height: 100vh;
     z-index: var(--z-hud);
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: var(--spacing-md);
     padding: var(--spacing-lg);
     pointer-events: none;
     background: rgba(10, 10, 10, 0.95);
     backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Scrollbar minimalista */
+#sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+}
+
+#sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* ============================================
-   CARDS DO HUD - MINIMALISTA
+   CARDS DA SIDEBAR - MINIMALISTA
    ============================================ */
-.hud-card {
+.sidebar-card {
     background: var(--bg-card);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
-    padding: var(--spacing-md);
+    padding: 0;
     box-shadow: var(--shadow-sm);
-    width: auto;
-    min-width: 200px;
+    width: 100%;
     transition: all var(--transition);
     pointer-events: auto;
+    flex-shrink: 0;
 }
 
-.hud-card:hover {
+.sidebar-card:hover {
     background: var(--bg-card-hover);
     box-shadow: var(--shadow-md);
 }
@@ -572,12 +593,30 @@ button:disabled:hover {
 
 /* Responsividade */
 @media (max-width: 900px) {
-    #hud-info {
-        flex-direction: column;
+    #sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 50vh;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: none;
+        border-top: 1px solid var(--color-border);
         padding: var(--spacing-md);
     }
     
-    .hud-card {
+    #game {
+        left: 0;
         width: 100%;
+        height: calc(100% - 200px);
+        bottom: 200px;
+    }
+    
+    .sidebar-card {
+        min-width: 250px;
+        width: auto;
     }
 }
