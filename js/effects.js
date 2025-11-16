@@ -49,7 +49,7 @@ export function createExplosion(scene, x, y) {
 }
 
 // Cria alvo com spritesheet de moedas USDC
-export function createTargetVisual(scene, x, y) {
+export function createTargetVisual(scene, x, y, targetProps = {}) {
     // Cria animação de rotação da moeda se ainda não existir
     if (!scene.anims.exists('coinRotate')) {
         // Cria frames da animação (14 frames: 0-13)
@@ -64,16 +64,18 @@ export function createTargetVisual(scene, x, y) {
     // Cria sprite da moeda
     const coin = scene.add.sprite(0, 0, 'usdc', 0);
     
-    // Escala a moeda para o tamanho desejado (frame original é 200x200)
-    // Ajusta para aproximadamente 40x40 pixels (mesmo tamanho do alvo anterior)
-    const scale = 0.2; // 200 * 0.2 = 40 pixels
-    coin.setScale(scale);
+    // Escala a moeda baseada no tipo de alvo (frame original é 200x200)
+    const baseScale = 0.2; // 200 * 0.2 = 40 pixels base
+    const typeScale = (targetProps.size || 1.0) * baseScale;
+    coin.setScale(typeScale);
     coin.setOrigin(0.5, 0.5);
     
-    // Glow externo (mantém efeito visual)
+    // Glow externo (cor baseada no tipo de alvo)
     const glow = scene.add.graphics();
-    glow.fillStyle(0x00ff00, 0.2);
-    glow.fillCircle(0, 0, 30);
+    const glowColor = targetProps.glowColor || 0x00ff00;
+    const glowSize = (targetProps.size || 1.0) * 30;
+    glow.fillStyle(glowColor, 0.2);
+    glow.fillCircle(0, 0, glowSize);
     
     // Animação de spawn (scale + fade in)
     coin.setAlpha(0);
@@ -83,8 +85,8 @@ export function createTargetVisual(scene, x, y) {
     scene.tweens.add({
         targets: [coin, glow],
         alpha: 1,
-        scaleX: scale,
-        scaleY: scale,
+        scaleX: typeScale,
+        scaleY: typeScale,
         duration: 300,
         ease: 'Back.easeOut',
         onComplete: () => {
@@ -221,5 +223,32 @@ export function updateHealthBar(healthBar, currentHealth, maxHealth) {
     
     healthBar.bar.fillStyle(color);
     healthBar.bar.fillRoundedRect(-24, -34, width, 4, 2);
+}
+
+// Cria texto flutuante (para feedback de kills, combo, etc)
+export function createFloatingText(scene, x, y, text, color = '#00ff00') {
+    const floatingText = scene.add.text(x, y, text, {
+        fontSize: '24px',
+        fill: color,
+        align: 'center',
+        fontFamily: 'Orbitron, monospace',
+        stroke: '#000000',
+        strokeThickness: 3,
+        fontWeight: 'bold'
+    }).setOrigin(0.5, 0.5).setDepth(150);
+    
+    // Animação: sobe e desaparece
+    scene.tweens.add({
+        targets: floatingText,
+        y: y - 50,
+        alpha: 0,
+        scaleX: 1.2,
+        scaleY: 1.2,
+        duration: 800,
+        ease: 'Power2',
+        onComplete: () => {
+            floatingText.destroy();
+        }
+    });
 }
 

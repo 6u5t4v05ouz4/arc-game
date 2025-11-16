@@ -1,6 +1,7 @@
 // Integração blockchain
-import { CONTRACT_ADDRESS, EXPLORER_URL, ARC_TESTNET, CONTRACT_ABI } from './config.js';
+import { CONTRACT_ADDRESS, EXPLORER_URL, ARC_TESTNET, CONTRACT_ABI, TOKEN_ADDRESS, ERC20_ABI } from './config.js';
 import { loadEthers, isArcTestnet, hasExternalWallet } from './wallet.js';
+import { getCurrentLevel } from './progression.js';
 
 let cooldown = 0;
 
@@ -14,6 +15,27 @@ export function setCooldown(value) {
 
 export function updateCooldown(delta) {
     cooldown = Math.max(0, cooldown - delta);
+}
+
+// Busca balance do token ARCGAME
+export async function getTokenBalance(provider, address) {
+    try {
+        const Ethers = await loadEthers();
+        const tokenContract = new Ethers.Contract(TOKEN_ADDRESS, ERC20_ABI, provider);
+        
+        // Busca balance e decimals
+        const [balance, decimals] = await Promise.all([
+            tokenContract.balanceOf(address),
+            tokenContract.decimals()
+        ]);
+        
+        // Formata balance considerando decimals
+        const formattedBalance = Ethers.formatUnits(balance, decimals);
+        return formattedBalance;
+    } catch (err) {
+        console.error('Erro ao buscar balance do token:', err);
+        return null;
+    }
 }
 
 // Trigger transação no contrato
@@ -115,18 +137,23 @@ export async function claimKills(scene, wallet, provider, killCount, onSuccess, 
     try {
         const Ethers = await loadEthers();
         
+        // Calcula bônus por nível (nível 10+ = +10% kills)
+        const level = getCurrentLevel();
+        const levelBonus = level >= 10 ? Math.floor(killCount * 0.1) : 0;
+        const totalKillsToClaim = killCount + levelBonus;
+        
         // Busca saldo antes da transação
         const balanceBefore = await provider.getBalance(wallet.address);
         const balanceBeforeEth = Ethers.formatEther(balanceBefore);
         console.log('Saldo antes do claim:', balanceBeforeEth, 'ETH');
-        console.log('Fazendo claim de', killCount, 'kills...');
+        console.log(`Fazendo claim de ${killCount} kills (nível ${level}, bônus: +${levelBonus}) = ${totalKillsToClaim} kills totais...`);
         
         // Cria contrato com ABI completo
         const contract = new Ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, wallet);
         
         // Tenta estimar gas primeiro - isso vai detectar problemas antes de enviar
         try {
-            const estimatedGas = await contract.claimKills.estimateGas(killCount);
+            const estimatedGas = await contract.claimKills.estimateGas(totalKillsToClaim);
             console.log('Gas estimado:', estimatedGas.toString());
         } catch (estimateErr) {
             console.error('Erro ao estimar gas:', estimateErr);
@@ -147,8 +174,8 @@ export async function claimKills(scene, wallet, provider, killCount, onSuccess, 
             throw new Error(`Erro ao estimar gas: ${errorMessage}`);
         }
         
-        // Chama função claimKills com o número de kills
-        const tx = await contract.claimKills(killCount, { gasLimit: 150000 });
+        // Chama função claimKills com o número de kills (incluindo bônus de nível)
+        const tx = await contract.claimKills(totalKillsToClaim, { gasLimit: 150000 });
         console.log('TX Enviada:', tx.hash);
         
         const receipt = await tx.wait();
@@ -177,7 +204,17 @@ export async function claimKills(scene, wallet, provider, killCount, onSuccess, 
                 const newBalanceEth = Ethers.formatEther(newBalance);
                 console.log('Saldo antes:', balanceBeforeEth, 'ETH');
                 console.log('Novo saldo:', newBalanceEth, 'ETH');
-                onBalanceUpdate(wallet.address, newBalanceEth);
+                
+                // Busca balance do token ARCGAME
+                let tokenBalance = null;
+                try {
+                    tokenBalance = await getTokenBalance(provider, wallet.address);
+                    console.log('Token balance:', tokenBalance, 'ARCGAME');
+                } catch (tokenErr) {
+                    console.error('Erro ao buscar balance do token:', tokenErr);
+                }
+                
+                onBalanceUpdate(wallet.address, newBalanceEth, tokenBalance);
             } catch (balanceErr) {
                 console.error('Erro ao atualizar saldo:', balanceErr);
             }
@@ -189,7 +226,10 @@ export async function claimKills(scene, wallet, provider, killCount, onSuccess, 
             gasUsed: receipt.gasUsed.toString(),
             blockNumber: receipt.blockNumber,
             url: txUrl,
-            killCount: killCount
+            killCount: totalKillsToClaim,
+            baseKills: killCount,
+            levelBonus: levelBonus,
+            level: level
         });
     } catch (err) {
         console.error('Claim Error completo:', err);

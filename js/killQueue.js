@@ -5,8 +5,13 @@ const STORAGE_KEY = 'mira_kills_pending';
 
 // Adiciona um kill à fila
 export function addKill() {
+    return addKills(1);
+}
+
+// Adiciona múltiplos kills à fila (para bônus de combo)
+export function addKills(count) {
     const current = getPendingKills();
-    const newCount = current + 1;
+    const newCount = current + count;
     savePendingKills(newCount);
     return newCount;
 }

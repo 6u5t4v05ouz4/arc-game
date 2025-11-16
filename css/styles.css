@@ -1,5 +1,45 @@
 /* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ============================================
+   SISTEMA DE CORES MINIMALISTA
+   ============================================ */
+:root {
+    /* Cores Principais - Minimalistas */
+    --color-text: #e0e0e0;
+    --color-text-muted: #888;
+    --color-primary: #4a9eff;
+    --color-success: #4ade80;
+    --color-warning: #fbbf24;
+    --color-border: rgba(255, 255, 255, 0.1);
+    
+    /* Cores de Fundo */
+    --bg-primary: #0a0a0a;
+    --bg-card: rgba(20, 20, 20, 0.8);
+    --bg-card-hover: rgba(30, 30, 30, 0.9);
+    
+    /* Sombras Sutis */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.4);
+    
+    /* Bordas */
+    --border-radius: 8px;
+    
+    /* Espaçamento */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+    
+    /* Transições */
+    --transition: 0.2s ease;
+    
+    /* Z-index */
+    --z-background: 0;
+    --z-game: 1;
+    --z-hud: 1000;
+}
 
 /* Reset e Base */
 * {
@@ -17,96 +57,334 @@ html, body {
 }
 
 body {
-    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
-    color: #00ff00;
-    font-family: 'Orbitron', monospace;
+    background: var(--bg-primary);
+    color: var(--color-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     position: relative;
-}
-
-/* Background grid pattern */
-body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: 
-        linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 50px 50px;
-    pointer-events: none;
-    z-index: 0;
-}
-
-/* HUD - Painel de Informações - fixo no topo */
-#hud-info {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 15px;
-    padding: 20px;
-    font-family: 'Orbitron', monospace;
-    pointer-events: none; /* Permite cliques passarem através do HUD */
-    background: rgba(0, 0, 0, 0.9);
-    border-bottom: 2px solid rgba(0, 255, 0, 0.3);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
 }
 
 /* Container do jogo - abaixo do HUD */
 #game {
     display: block;
     position: fixed;
-    top: 180px; /* Começa abaixo do HUD */
+    top: 180px;
     left: 0;
     width: 100%;
-    height: calc(100% - 180px); /* Altura total menos altura do HUD */
-    z-index: 1;
+    height: calc(100% - 180px);
+    z-index: var(--z-game);
     box-sizing: border-box;
 }
 
-/* Canvas do Phaser dentro do #game - ocupa todo o espaço disponível */
 #game canvas {
     display: block;
     width: 100% !important;
     height: 100% !important;
 }
 
-/* Cards do HUD */
-.hud-card {
-    background: rgba(0, 0, 0, 0.9);
-    border: 2px solid #00ff00;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 
-        0 0 15px rgba(0, 255, 0, 0.6),
-        inset 0 0 10px rgba(0, 255, 0, 0.1);
+/* ============================================
+   HUD PRINCIPAL - MINIMALISTA
+   ============================================ */
+#hud-info {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: var(--z-hud);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    pointer-events: none;
+    background: rgba(10, 10, 10, 0.95);
     backdrop-filter: blur(10px);
-    width: 100%;
-    transition: all 0.3s ease;
-    pointer-events: auto; /* Permite interação com os cards */
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* ============================================
+   CARDS DO HUD - MINIMALISTA
+   ============================================ */
+.hud-card {
+    background: var(--bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+    width: auto;
+    min-width: 200px;
+    transition: all var(--transition);
+    pointer-events: auto;
 }
 
 .hud-card:hover {
-    box-shadow: 
-        0 0 20px rgba(0, 255, 0, 0.8),
-        inset 0 0 15px rgba(0, 255, 0, 0.2);
-    transform: translateX(5px);
+    background: var(--bg-card-hover);
+    box-shadow: var(--shadow-md);
 }
 
-/* Card de botões dentro do HUD */
-.hud-card.controls-card {
+/* Header do Card */
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.card-icon {
+    width: 16px;
+    height: 16px;
+    stroke: var(--color-text-muted);
+    stroke-width: 1.5;
+    opacity: 0.6;
+}
+
+.card-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+/* Conteúdo do Card */
+.card-content {
+    /* Sem padding extra, já está no card */
+}
+
+/* Cards específicos */
+.claim-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.controls-content {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--spacing-sm);
 }
 
-/* Wallet Info */
+/* ============================================
+   ELEMENTOS DE ESTATÍSTICAS - MINIMALISTA
+   ============================================ */
+
+/* Stat Row */
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-xs) 0;
+}
+
+.stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Stat Divider */
+.stat-divider {
+    height: 1px;
+    background: var(--color-border);
+    margin: var(--spacing-sm) 0;
+}
+
+/* Score específico */
+#score {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+#score.pulse {
+    transform: scale(1.05);
+    transition: transform 0.2s;
+}
+
+/* Pending Kills */
+#pending-kills {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+#pending-kills.ready-to-claim {
+    color: var(--color-warning);
+}
+
+/* Combo Display */
+.combo-row {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+}
+
+.combo-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.combo-row.high-combo {
+    background: rgba(251, 191, 36, 0.1);
+}
+
+.combo-row.high-combo .combo-value {
+    color: var(--color-warning);
+}
+
+/* Level Display */
+#level-display {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* XP Bar Minimalista */
+.xp-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: var(--spacing-sm);
+}
+
+.xp-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--color-primary);
+    transition: width 0.3s ease;
+}
+
+/* ============================================
+   BOTÕES MINIMALISTAS
+   ============================================ */
+
+/* Botões de Controle */
+.control-btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: var(--border-radius);
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.control-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.control-btn:active {
+    transform: scale(0.98);
+}
+
+.btn-icon {
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+.btn-text {
+    flex: 1;
+    text-align: left;
+}
+
+/* Botão padrão (fallback) */
+button:not(.control-btn):not(.claim-button) {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-md) var(--spacing-lg);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: var(--border-radius);
+    transition: all var(--transition);
+}
+
+/* Botão de Claim Minimalista */
+.claim-button {
+    background: var(--color-primary);
+    color: #000;
+    border: none;
+    padding: var(--spacing-md) var(--spacing-xl);
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all var(--transition);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.claim-button:hover {
+    background: var(--color-success);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.claim-button:active {
+    transform: translateY(0);
+}
+
+.button-text {
+    position: relative;
+    z-index: 1;
+}
+
+.button-glow {
+    display: none;
+}
+
+/* Botões padrão hover (fallback) */
+button:not(.control-btn):not(.claim-button):hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+button:not(.control-btn):not(.claim-button):active {
+    transform: scale(0.98);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #666;
+}
+
+button:disabled:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   WALLET INFO MINIMALISTA
+   ============================================ */
 #wallet-info {
     margin: 0;
 }
@@ -115,58 +393,88 @@ body::before {
 .wallet-balance {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-size: 14px;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    font-size: 13px;
+    padding: var(--spacing-xs) 0;
 }
 
 .wallet-address .icon,
 .wallet-balance .icon {
-    font-size: 16px;
-    filter: drop-shadow(0 0 5px #00ffff);
+    font-size: 14px;
+    opacity: 0.6;
 }
 
 .wallet-address .label,
 .wallet-balance .label {
-    color: #00ffff;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 12px;
-    letter-spacing: 1px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+    font-size: 11px;
+    min-width: 60px;
 }
 
 .wallet-address .value,
 .wallet-balance .value {
-    color: #00ff00;
-    font-weight: 700;
-    font-family: 'Rajdhani', monospace;
-    text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+    color: var(--color-text);
+    font-weight: 500;
+    font-size: 13px;
     flex: 1;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Botão de copiar wallet */
+/* Token Balance */
+.wallet-token-balance {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    font-size: 13px;
+    padding: var(--spacing-xs) 0;
+}
+
+.wallet-token-balance .icon {
+    font-size: 14px;
+    opacity: 0.6;
+}
+
+.wallet-token-balance .label {
+    color: var(--color-text-muted);
+    font-weight: 500;
+    font-size: 11px;
+    min-width: 60px;
+}
+
+.wallet-token-balance .value {
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: 13px;
+    flex: 1;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Botão de copiar wallet melhorado */
 .copy-wallet-btn {
-    background: rgba(0, 255, 0, 0.1);
-    border: 1px solid rgba(0, 255, 0, 0.5);
-    color: #00ff00;
-    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: var(--spacing-xs) var(--spacing-sm);
     cursor: pointer;
     border-radius: 4px;
     font-size: 12px;
-    transition: all 0.2s ease;
+    transition: all var(--transition);
     margin-left: auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 28px;
-    height: 24px;
+    min-width: 32px;
+    height: 28px;
 }
 
 .copy-wallet-btn:hover {
-    background: rgba(0, 255, 0, 0.2);
-    border-color: #00ff00;
-    box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
-    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .copy-wallet-btn:active {
@@ -174,9 +482,9 @@ body::before {
 }
 
 .copy-wallet-btn.copied {
-    background: rgba(0, 255, 0, 0.3);
-    border-color: #00ff00;
-    color: #00ff00;
+    background: rgba(74, 222, 128, 0.2);
+    border-color: var(--color-success);
+    color: var(--color-success);
 }
 
 .copy-wallet-btn .copy-icon {
@@ -186,282 +494,90 @@ body::before {
 
 .wallet-address.low-balance .value,
 .wallet-balance.low-balance .value {
-    color: #ff6600;
-    text-shadow: 0 0 10px rgba(255, 102, 0, 0.8);
-    animation: pulse-warning 2s infinite;
+    color: var(--color-warning);
 }
 
-/* Indicador de rede */
+/* Indicador de rede minimalista */
 .network-status {
     font-size: 11px;
-    padding: 4px 8px;
+    padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: 4px;
-    margin-bottom: 8px;
+    margin-bottom: var(--spacing-sm);
     text-align: center;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+    justify-content: center;
 }
 
 .network-status.correct {
-    background: rgba(0, 255, 0, 0.2);
-    color: #00ff00;
-    border: 1px solid rgba(0, 255, 0, 0.5);
+    background: rgba(74, 222, 128, 0.1);
+    color: var(--color-success);
+    border: 1px solid rgba(74, 222, 128, 0.2);
 }
 
 .network-status.incorrect {
-    background: rgba(255, 102, 0, 0.2);
-    color: #ff6600;
-    border: 1px solid rgba(255, 102, 0, 0.5);
-    animation: pulse-warning 2s infinite;
+    background: rgba(251, 191, 36, 0.1);
+    color: var(--color-warning);
+    border: 1px solid rgba(251, 191, 36, 0.2);
 }
 
 .network-status:not(.correct):not(.incorrect) {
-    background: rgba(0, 255, 255, 0.2);
-    color: #00ffff;
-    border: 1px solid rgba(0, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
 }
 
 .wallet-link {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(0, 255, 255, 0.3);
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--color-border);
 }
 
 .faucet-link {
-    color: #00ffff;
+    color: var(--color-text-muted);
     text-decoration: none;
     font-size: 12px;
-    transition: all 0.3s ease;
+    transition: all var(--transition);
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--spacing-xs);
 }
 
 .faucet-link:hover {
-    color: #00ff00;
-    text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
-    transform: scale(1.05);
+    color: var(--color-text);
 }
 
 .warning {
-    color: #ff6600;
+    color: var(--color-warning);
     font-size: 11px;
-    margin-top: 8px;
-    padding: 5px;
-    background: rgba(255, 102, 0, 0.1);
-    border-left: 3px solid #ff6600;
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-xs);
+    background: rgba(251, 191, 36, 0.1);
+    border-left: 2px solid var(--color-warning);
     border-radius: 3px;
-    animation: pulse-warning 2s infinite;
 }
 
-/* Score */
-#score {
-    font-size: 24px;
-    font-weight: 900;
-    color: #00ff00;
-    text-shadow: 
-        0 0 10px rgba(0, 255, 0, 0.8),
-        0 0 20px rgba(0, 255, 0, 0.5);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    transition: all 0.3s ease;
-    margin-bottom: 10px;
-}
-
-#score.pulse {
-    animation: pulse-score 0.3s ease;
-    transform: scale(1.2);
-}
-
-/* Pending Kills */
-#pending-kills {
-    font-size: 16px;
-    font-weight: 600;
-    color: #00ffff;
-    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
-    letter-spacing: 1px;
-    transition: all 0.3s ease;
-}
-
-#pending-kills.ready-to-claim {
-    color: #00ff00;
-    text-shadow: 
-        0 0 10px rgba(0, 255, 0, 0.8),
-        0 0 20px rgba(0, 255, 0, 0.5);
-    animation: pulse-claim 2s infinite;
-}
-
-@keyframes pulse-claim {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-    50% {
-        transform: scale(1.05);
-        opacity: 0.8;
-    }
-}
-
-/* Botões */
-button {
-    background: linear-gradient(135deg, rgba(0, 255, 0, 0.1) 0%, rgba(0, 255, 255, 0.1) 100%);
-    color: #00ff00;
-    border: 2px solid #00ff00;
-    padding: 12px 20px;
-    cursor: pointer;
-    font-family: 'Orbitron', monospace;
-    font-weight: 700;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    border-radius: 6px;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 
-        0 0 10px rgba(0, 255, 0, 0.3),
-        inset 0 0 10px rgba(0, 255, 0, 0.1);
-}
-
-/* Botão de Claim especial */
-.claim-button {
-    background: linear-gradient(135deg, rgba(0, 255, 0, 0.2) 0%, rgba(0, 255, 255, 0.2) 100%);
-    color: #00ff00;
-    border: 2px solid #00ff00;
-    padding: 15px 25px;
-    font-size: 16px;
-    font-weight: 900;
-    box-shadow: 
-        0 0 15px rgba(0, 255, 0, 0.5),
-        inset 0 0 15px rgba(0, 255, 0, 0.2);
-    animation: pulse-claim-button 2s infinite;
-}
-
-.claim-button:hover {
-    background: linear-gradient(135deg, rgba(0, 255, 0, 0.3) 0%, rgba(0, 255, 255, 0.3) 100%);
-    border-color: #00ffff;
-    color: #00ffff;
-    box-shadow: 
-        0 0 20px rgba(0, 255, 255, 0.7),
-        inset 0 0 20px rgba(0, 255, 255, 0.3);
-    transform: translateY(-2px) scale(1.05);
-}
-
-@keyframes pulse-claim-button {
-    0%, 100% {
-        box-shadow: 
-            0 0 15px rgba(0, 255, 0, 0.5),
-            inset 0 0 15px rgba(0, 255, 0, 0.2);
-    }
-    50% {
-        box-shadow: 
-            0 0 25px rgba(0, 255, 0, 0.8),
-            inset 0 0 20px rgba(0, 255, 0, 0.3);
-    }
-}
-
-button::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    border-radius: 50%;
-    background: rgba(0, 255, 0, 0.3);
-    transform: translate(-50%, -50%);
-    transition: width 0.6s, height 0.6s;
-}
-
-button:hover {
-    background: linear-gradient(135deg, rgba(0, 255, 0, 0.2) 0%, rgba(0, 255, 255, 0.2) 100%);
-    border-color: #00ffff;
-    color: #00ffff;
-    box-shadow: 
-        0 0 20px rgba(0, 255, 255, 0.6),
-        inset 0 0 15px rgba(0, 255, 255, 0.2);
-    transform: translateY(-2px) scale(1.05);
-}
-
-button:hover::before {
-    width: 300px;
-    height: 300px;
-}
-
-button:active {
-    transform: translateY(0) scale(0.98);
-    box-shadow: 
-        0 0 10px rgba(0, 255, 0, 0.4),
-        inset 0 0 20px rgba(0, 255, 0, 0.3);
-}
-
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    border-color: #666;
-    color: #666;
-}
-
-button:disabled:hover {
-    transform: none;
-    box-shadow: 
-        0 0 10px rgba(0, 255, 0, 0.3),
-        inset 0 0 10px rgba(0, 255, 0, 0.1);
-}
-
-/* Animações */
+/* Animações mínimas */
 @keyframes pulse-score {
     0%, 100% {
         transform: scale(1);
     }
     50% {
-        transform: scale(1.2);
+        transform: scale(1.05);
     }
 }
 
-@keyframes pulse-warning {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.6;
-    }
-}
-
-@keyframes glow {
-    0%, 100% {
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-    }
-    50% {
-        box-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
-    }
-}
-
-/* Responsividade básica */
+/* Responsividade */
 @media (max-width: 900px) {
     #hud-info {
         flex-direction: column;
-        padding: 10px;
-        gap: 10px;
-    }
-    
-    /* HUD pode ter altura diferente em mobile, mas mantém separação */
-    #game {
-        top: 180px; /* Mantém separação do HUD */
+        padding: var(--spacing-md);
     }
     
     .hud-card {
-        padding: 12px;
         width: 100%;
     }
-    
-    #score {
-        font-size: 20px;
-    }
-    
-    button {
-        padding: 10px 16px;
-        font-size: 12px;
-    }
 }
-

@@ -1,9 +1,15 @@
 // Lógica principal do jogo Phaser
 import { GAME_CONFIG, TARGET_SPAWN_DELAY, TARGET_LIFETIME, SCORE_FOR_MOVEMENT, TARGET_SIZE, TARGET_BODY_SIZE, TARGET_MAX_HEALTH, DAMAGE_PER_HIT, MIN_KILLS_FOR_CLAIM } from './config.js';
-import { createTargetVisual, createExplosion, createTrail, createHitEffect, updateHealthBar } from './effects.js';
-import { updateScore, updateWalletInfo, updatePendingKills, showClaimButton, hideClaimButton } from './ui.js';
+import { createTargetVisual, createExplosion, createTrail, createHitEffect, updateHealthBar, createFloatingText } from './effects.js';
+import { updateScore, updateWalletInfo, updatePendingKills, showClaimButton, hideClaimButton, updateComboDisplay, updateLevelDisplay, showLevelUp, showAchievement } from './ui.js';
 import { getCooldown, setCooldown, updateCooldown } from './blockchain.js';
-import { addKill, getPendingKills, canClaim } from './killQueue.js';
+import { addKill, getPendingKills, canClaim, addKills } from './killQueue.js';
+import { incrementCombo, resetCombo, getEffectiveKills, initCombo, setComboUpdateCallback } from './combo.js';
+import { incrementStat, recordShot, updateBestSession, startSession, endSession } from './stats.js';
+import { checkLevelUp, getCurrentLevel, getLevelProgress } from './progression.js';
+import { getRandomTargetType, getTargetProperties, TARGET_TYPES } from './targetTypes.js';
+import { calculateDifficulty, getCurrentDifficulty } from './difficulty.js';
+import { checkAchievements, recordTargetKill, setAchievementUpdateCallback } from './achievements.js';
 
 let game = null;
 let targets = [];
@@ -78,6 +84,15 @@ function create() {
     // Mira custom
     this.input.setDefaultCursor('crosshair');
     
+    // Inicializa sistema de combo
+    initCombo();
+    setComboUpdateCallback((combo, multiplier) => {
+        updateComboDisplay(combo, multiplier);
+    });
+    
+    // Inicia sessão de estatísticas
+    startSession();
+    
     // Inicializa sons
     bulletSound = this.sound.add('bullet', { volume: 0.5 });
     explosionSound = this.sound.add('coin-received', { volume: 0.6 });
@@ -85,6 +100,27 @@ function create() {
     // Carrega kills pendentes e atualiza UI
     const pendingKills = getPendingKills();
     updatePendingKills(pendingKills);
+    
+    // Atualiza display de nível inicial
+    const currentLevel = getCurrentLevel();
+    const levelProgress = getLevelProgress();
+    updateLevelDisplay(currentLevel, levelProgress);
+    
+    // Configura callback de level up
+    window.onLevelUp = (newLevel) => {
+        showLevelUp(this, newLevel);
+        const newProgress = getLevelProgress();
+        updateLevelDisplay(newLevel, newProgress);
+    };
+    
+    // Configura callback de achievements
+    setAchievementUpdateCallback((achievement) => {
+        // Mostra notificação de conquista
+        showAchievement(this, achievement);
+    });
+    
+    // Verifica conquistas iniciais
+    checkAchievements();
     
     // Sincroniza totalPoints com kills pendentes
     if (window.totalPoints !== undefined) {
@@ -99,6 +135,9 @@ function create() {
         if (bulletSound) {
             bulletSound.play();
         }
+        
+        // Registra tiro nas estatísticas
+        recordShot(false); // Inicialmente como miss, será atualizado se acertar
         
         // Verifica cooldown apenas se houver alvo destruído
         // Usa coordenadas do mundo do Phaser
@@ -121,16 +160,20 @@ function create() {
         if (hit) {
             console.log('Hit detected!');
             
+            // Registra como hit nas estatísticas
+            recordShot(true);
+            
             const target = hit.container;
             const hitX = target.x;
             const hitY = target.y;
             
             // Reduz vida do alvo
-            hit.health = (hit.health || TARGET_MAX_HEALTH) - DAMAGE_PER_HIT;
+            const maxHealth = hit.maxHealth || hit.health || TARGET_MAX_HEALTH;
+            hit.health = (hit.health || maxHealth) - DAMAGE_PER_HIT;
             
             // Atualiza barra de vida visual
             if (hit.healthBar) {
-                updateHealthBar(hit.healthBar, hit.health, TARGET_MAX_HEALTH);
+                updateHealthBar(hit.healthBar, hit.health, maxHealth);
             }
             
             // Efeito de hit (menor que explosão)
@@ -144,6 +187,26 @@ function create() {
                     return;
                 }
                 
+                // Incrementa combo ao matar alvo
+                const newCombo = incrementCombo();
+                
+                // Incrementa kills totais nas estatísticas
+                const newTotalKills = incrementStat('totalKills', 1);
+                
+                // Verifica se subiu de nível
+                const levelUpInfo = checkLevelUp(newTotalKills);
+                if (levelUpInfo.leveledUp) {
+                    // Notifica level up
+                    if (window.onLevelUp) {
+                        window.onLevelUp(levelUpInfo.newLevel);
+                    }
+                }
+                
+                // Atualiza display de nível e XP
+                const currentLevel = getCurrentLevel();
+                const levelProgress = getLevelProgress();
+                updateLevelDisplay(currentLevel, levelProgress);
+                
                 // Toca som de explosão
                 if (explosionSound) {
                     explosionSound.play();
@@ -151,6 +214,13 @@ function create() {
                 
                 // Explosão melhorada
                 createExplosion(this, hitX, hitY);
+                
+                // Calcula kills efetivos considerando combo e tipo de alvo
+                const killValue = hit.killValue || 1;
+                const effectiveKills = getEffectiveKills(killValue);
+                
+                // Texto flutuante mostrando kills ganhos
+                createFloatingText(this, hitX, hitY, `+${effectiveKills} Kills`, effectiveKills > killValue ? '#ffff00' : '#00ff00');
                 
                 // Remove alvo
                 target.destroy();
@@ -160,9 +230,20 @@ function create() {
                 score++;
                 updateScore(score);
                 
-                // Adiciona kill à fila (sem transação imediata)
-                const pendingKills = addKill();
-                console.log(`Kill adicionado! Total pendente: ${pendingKills}`);
+                // Atualiza melhor sessão
+                updateBestSession(score);
+                
+                // Registra kill do tipo de alvo para achievements
+                if (hit.type) {
+                    recordTargetKill(hit.type);
+                }
+                
+                // Adiciona kills à fila (com bônus de combo)
+                const pendingKills = addKills(effectiveKills);
+                console.log(`Kill adicionado! Combo: ${newCombo}, Kills efetivos: ${effectiveKills}, Total pendente: ${pendingKills}`);
+                
+                // Verifica conquistas após cada kill
+                checkAchievements();
                 
                 // Atualiza totalPoints (compatibilidade com novo sistema)
                 if (window.totalPoints !== undefined) {
@@ -186,29 +267,45 @@ function create() {
                 // Hit sem kill - sem cooldown para permitir múltiplos tiros
                 console.log(`Alvo atingido! Vida restante: ${hit.health}/${TARGET_MAX_HEALTH}`);
             }
+        } else {
+            // Errou o tiro - reseta combo
+            resetCombo();
         }
     });
     
-    // Spawn timer
-    this.time.addEvent({ 
-        delay: TARGET_SPAWN_DELAY, 
-        callback: () => spawnTarget(this), 
-        callbackScope: this, 
-        loop: true 
-    });
+    // Spawn timer dinâmico baseado na dificuldade
+    function scheduleNextSpawn() {
+        const difficulty = getCurrentDifficulty();
+        this.time.delayedCall(difficulty.spawnDelay, () => {
+            spawnTarget(this);
+            scheduleNextSpawn.call(this);
+        });
+    }
+    
+    // Inicia primeiro spawn
+    scheduleNextSpawn.call(this);
 }
 
 function update(time, delta) {
     updateCooldown(delta);
     
-    // Dificuldade: Após 5 kills, set velocity nos alvos com body
+    // Obtém dificuldade atual
+    const difficulty = getCurrentDifficulty();
+    
+    // Habilita movimento dos alvos baseado na dificuldade
+    // Alvos começam a se mover após 5 kills (SCORE_FOR_MOVEMENT)
     if (score > SCORE_FOR_MOVEMENT) {
         targets.forEach(t => {
             const target = t.container || t;
             if (target.body && !t.isMoving) {
+                // Velocidade baseada no tipo de alvo e dificuldade
+                const baseVel = difficulty.velocity;
+                const typeSpeed = t.speed || 1.0;
+                const velocity = baseVel * typeSpeed;
+                
                 target.body.setVelocity(
-                    Phaser.Math.Between(-100, 100), 
-                    Phaser.Math.Between(-100, 100)
+                    Phaser.Math.Between(-velocity, velocity), 
+                    Phaser.Math.Between(-velocity, velocity)
                 );
                 target.body.setBounce(1, 1);
                 target.body.setCollideWorldBounds(true);
@@ -231,40 +328,59 @@ function update(time, delta) {
     }
 }
 
-// SpawnTarget com visual melhorado
+// SpawnTarget com visual melhorado e tipos variados
 function spawnTarget(scene) {
+    // Obtém dificuldade atual
+    const difficulty = calculateDifficulty(getCurrentLevel());
+    
+    // Verifica limite de alvos simultâneos
+    if (targets.length >= difficulty.maxTargets) {
+        return; // Não spawna mais alvos se atingiu o limite
+    }
+    
     const margin = 50;
     const x = Phaser.Math.Between(margin, scene.scale.width - margin);
-    const y = Phaser.Math.Between(margin, scene.scale.height - margin); // Canvas já está abaixo do HUD
+    const y = Phaser.Math.Between(margin, scene.scale.height - margin);
     
-    const targetVisual = createTargetVisual(scene, x, y);
+    // Obtém tipo de alvo aleatório
+    const targetType = getRandomTargetType();
+    const targetProps = getTargetProperties(targetType);
+    
+    // Cria visual do alvo com propriedades do tipo
+    const targetVisual = createTargetVisual(scene, x, y, targetProps);
     const container = targetVisual.container;
     
     container.setDepth(1);
-    container.setInteractive(new Phaser.Geom.Circle(0, 0, TARGET_SIZE), Phaser.Geom.Circle.Contains);
+    const hitRadius = TARGET_SIZE * targetProps.size;
+    container.setInteractive(new Phaser.Geom.Circle(0, 0, hitRadius), Phaser.Geom.Circle.Contains);
     
     // Pré-enable physics body arcade
     scene.physics.add.existing(container);
-    container.body.setSize(TARGET_BODY_SIZE, TARGET_BODY_SIZE);
+    const bodySize = TARGET_BODY_SIZE * targetProps.size;
+    container.body.setSize(bodySize, bodySize);
     container.body.setAllowGravity(false);
     container.body.setImmovable(true);
     
     const targetData = {
         container: container,
         isMoving: false,
-        health: TARGET_MAX_HEALTH, // Inicializa com vida máxima
-        healthBar: targetVisual.healthBar // Referência à barra de vida
+        health: targetProps.health, // Vida baseada no tipo
+        maxHealth: targetProps.health,
+        healthBar: targetVisual.healthBar,
+        type: targetType,
+        killValue: targetProps.killValue,
+        speed: targetProps.speed
     };
     
     // Inicializa barra de vida
     if (targetData.healthBar) {
-        updateHealthBar(targetData.healthBar, TARGET_MAX_HEALTH, TARGET_MAX_HEALTH);
+        updateHealthBar(targetData.healthBar, targetProps.health, targetProps.health);
     }
     
     targets.push(targetData);
     
-    // Despawn após tempo
-    scene.time.delayedCall(TARGET_LIFETIME, () => {
+    // Despawn após tempo (baseado na dificuldade)
+    scene.time.delayedCall(difficulty.lifetime, () => {
         const idx = targets.indexOf(targetData);
         if (idx > -1) {
             container.destroy();

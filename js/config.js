@@ -1,5 +1,6 @@
 // Configurações do jogo
 export const CONTRACT_ADDRESS = '0x3B65d74cdB9626D8A793438acA2C88698AAdfBf3'; // Contrato deployado na Arc Testnet
+export const TOKEN_ADDRESS = '0x3B65d74cdB9626D8A793438acA2C88698AAdfBf3'; // Token ARCGAME (ERC-20)
 
 // ABI do contrato KillContract
 export const CONTRACT_ABI = [
@@ -7,6 +8,13 @@ export const CONTRACT_ABI = [
     'function getPlayerKills(address) view returns (uint256)',
     'function setDailyCap(uint256 newCap)',
     'event KillsClaimed(address indexed player, uint256 count, uint256 timestamp)'
+];
+
+// ABI ERC-20 padrão para ler balance do token
+export const ERC20_ABI = [
+    'function balanceOf(address owner) view returns (uint256)',
+    'function decimals() view returns (uint8)',
+    'function symbol() view returns (string)'
 ];
 export const RPC_URL = 'https://rpc.testnet.arc.network'; // Arc Testnet
 export const EXPLORER_URL = 'https://testnet.arcscan.app/tx/';

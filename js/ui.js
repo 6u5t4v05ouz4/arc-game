@@ -6,18 +6,26 @@ let scoreElement = null;
 let walletInfoElement = null;
 let pendingKillsElement = null;
 let claimButtonContainer = null;
+let comboElement = null;
+let levelElement = null;
+let xpBarElement = null;
+let xpBarFillElement = null;
 
 // Inicializa elementos de UI
 export function initUI() {
     scoreElement = document.getElementById('score');
     walletInfoElement = document.getElementById('wallet-info');
     pendingKillsElement = document.getElementById('pending-kills');
+    comboElement = document.getElementById('combo-display');
+    levelElement = document.getElementById('level-display');
+    xpBarElement = document.getElementById('xp-bar');
+    xpBarFillElement = document.getElementById('xp-bar-fill');
 }
 
 // Atualiza display do score com animação
 export function updateScore(score) {
     if (scoreElement) {
-        scoreElement.textContent = `Score: ${score}`;
+        scoreElement.textContent = score;
         // Animação de pulse
         scoreElement.classList.add('pulse');
         setTimeout(() => {
@@ -51,7 +59,7 @@ export async function copyWalletToClipboard(address) {
 }
 
 // Atualiza informações da wallet
-export function updateWalletInfo(address, balance, isLowBalance = false, isExternal = false, networkStatus = null) {
+export function updateWalletInfo(address, balance, isLowBalance = false, isExternal = false, networkStatus = null, tokenBalance = null) {
     if (walletInfoElement) {
         const shortAddress = address.substring(0, 10) + '...';
         const balanceFormatted = parseFloat(balance).toFixed(4);
@@ -69,6 +77,22 @@ export function updateWalletInfo(address, balance, isLowBalance = false, isExter
             }
         }
         
+        // Formata balance do token
+        let tokenBalanceHtml = '';
+        if (tokenBalance !== null) {
+            const tokenBalanceFormatted = parseFloat(tokenBalance).toLocaleString('en-US', {
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 0
+            });
+            tokenBalanceHtml = `
+                <div class="wallet-token-balance">
+                    <span class="icon">🪙</span>
+                    <span class="label">ARCGAME:</span>
+                    <span class="value">${tokenBalanceFormatted}</span>
+                </div>
+            `;
+        }
+        
         walletInfoElement.innerHTML = `
             ${networkIndicator}
             <div class="wallet-address ${balanceClass}">
@@ -84,6 +108,7 @@ export function updateWalletInfo(address, balance, isLowBalance = false, isExter
                 <span class="label">Balance:</span>
                 <span class="value">${balanceFormatted} ETH</span>
             </div>
+            ${tokenBalanceHtml}
             ${isLowBalance ? '<div class="warning">⚠️ Fund with USDC testnet on faucet for gas!</div>' : ''}
             <div class="wallet-link">
                 <a href="https://faucet.circle.com" target="_blank" class="faucet-link">🔗 Faucet</a>
@@ -261,7 +286,7 @@ export function initPhaserNotification(scene) {
 // Atualiza display de kills pendentes
 export function updatePendingKills(killCount) {
     if (pendingKillsElement) {
-        pendingKillsElement.textContent = `Pending Kills: ${killCount}`;
+        pendingKillsElement.textContent = killCount;
         // Adiciona classe quando pronto para claim
         if (killCount >= 10) { // MIN_KILLS_FOR_CLAIM (hardcoded para evitar import circular)
             pendingKillsElement.classList.add('ready-to-claim');
@@ -279,7 +304,12 @@ export function showClaimButton(scene, killCount, onClaimClick) {
     if (!claimContainer || !claimButton) return;
     
     // Atualiza texto do botão
-    claimButton.textContent = `Claim ${killCount} Kills`;
+    const buttonText = claimButton.querySelector('.button-text');
+    if (buttonText) {
+        buttonText.textContent = `Claim ${killCount} Kills`;
+    } else {
+        claimButton.textContent = `Claim ${killCount} Kills`;
+    }
     
     // Remove event listeners anteriores
     const newButton = claimButton.cloneNode(true);
@@ -306,5 +336,174 @@ export function hideClaimButton() {
         claimContainer.style.display = 'none';
     }
     claimButtonContainer = null;
+}
+
+// Atualiza display do combo
+export function updateComboDisplay(combo, multiplier) {
+    if (comboElement) {
+        const comboRow = comboElement;
+        const comboValue = comboRow.querySelector('.combo-value');
+        
+        if (combo > 0) {
+            if (comboValue) {
+                comboValue.textContent = `${combo}x (${multiplier.toFixed(1)}x)`;
+            }
+            comboRow.style.display = 'flex';
+            
+            // Efeito visual para combos altos
+            if (combo >= 20) {
+                comboRow.classList.add('high-combo');
+            } else {
+                comboRow.classList.remove('high-combo');
+            }
+        } else {
+            comboRow.style.display = 'none';
+            comboRow.classList.remove('high-combo');
+        }
+    }
+}
+
+// Atualiza display do nível e barra de XP
+export function updateLevelDisplay(level, progress) {
+    if (levelElement) {
+        levelElement.textContent = level;
+    }
+    
+    if (xpBarFillElement) {
+        const percentage = Math.min(100, progress * 100);
+        xpBarFillElement.style.width = `${percentage}%`;
+    }
+}
+
+// Mostra notificação de conquista
+export function showAchievement(scene, achievement) {
+    if (!scene) return;
+    
+    // Texto no centro da tela
+    const achievementText = scene.add.text(
+        scene.scale.width / 2,
+        scene.scale.height / 2 - 50,
+        `ACHIEVEMENT UNLOCKED!\n${achievement.name}\n${achievement.description}`,
+        {
+            fontSize: '32px',
+            fill: '#ffaa00',
+            align: 'center',
+            fontFamily: 'Orbitron, monospace',
+            stroke: '#000000',
+            strokeThickness: 4
+        }
+    ).setOrigin(0.5, 0.5).setDepth(200);
+    
+    // Animação de entrada
+    achievementText.setAlpha(0);
+    achievementText.setScale(0);
+    
+    scene.tweens.add({
+        targets: achievementText,
+        alpha: 1,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 500,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+            // Animação de saída
+            scene.tweens.add({
+                targets: achievementText,
+                alpha: 0,
+                scaleX: 1.2,
+                scaleY: 1.2,
+                y: achievementText.y - 50,
+                duration: 500,
+                ease: 'Power2',
+                delay: 2000,
+                onComplete: () => {
+                    achievementText.destroy();
+                }
+            });
+        }
+    });
+    
+    // Efeito de flash dourado
+    const flash = scene.add.rectangle(
+        scene.scale.width / 2,
+        scene.scale.height / 2,
+        scene.scale.width,
+        scene.scale.height,
+        0xffaa00,
+        0.15
+    );
+    flash.setDepth(199);
+    scene.tweens.add({
+        targets: flash,
+        alpha: 0,
+        duration: 1000,
+        onComplete: () => flash.destroy()
+    });
+}
+
+// Mostra animação de level up
+export function showLevelUp(scene, newLevel) {
+    if (!scene) return;
+    
+    // Texto grande no centro da tela
+    const levelUpText = scene.add.text(
+        scene.scale.width / 2,
+        scene.scale.height / 2,
+        `LEVEL UP!\nLevel ${newLevel}`,
+        {
+            fontSize: '48px',
+            fill: '#00ff00',
+            align: 'center',
+            fontFamily: 'Orbitron, monospace',
+            stroke: '#000000',
+            strokeThickness: 4
+        }
+    ).setOrigin(0.5, 0.5).setDepth(200);
+    
+    // Animação de entrada
+    levelUpText.setAlpha(0);
+    levelUpText.setScale(0);
+    
+    scene.tweens.add({
+        targets: levelUpText,
+        alpha: 1,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 500,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+            // Animação de saída
+            scene.tweens.add({
+                targets: levelUpText,
+                alpha: 0,
+                scaleX: 1.5,
+                scaleY: 1.5,
+                y: levelUpText.y - 100,
+                duration: 500,
+                ease: 'Power2',
+                delay: 1500,
+                onComplete: () => {
+                    levelUpText.destroy();
+                }
+            });
+        }
+    });
+    
+    // Efeito de flash
+    const flash = scene.add.rectangle(
+        scene.scale.width / 2,
+        scene.scale.height / 2,
+        scene.scale.width,
+        scene.scale.height,
+        0x00ff00,
+        0.2
+    );
+    flash.setDepth(199);
+    scene.tweens.add({
+        targets: flash,
+        alpha: 0,
+        duration: 800,
+        onComplete: () => flash.destroy()
+    });
 }
 
